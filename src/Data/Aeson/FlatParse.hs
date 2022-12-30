@@ -169,39 +169,30 @@ data Err
 peekWord8 :: Parser e Word8
 peekWord8 = lookahead anyWord8
 
--- jsonWith :: ([(Key, Value)] -> Either String Object) -> Parser String Value
--- jsonWith mkObject = fix $ \value_ -> do
---   skipSpace
--- --   w <- lookahead anyWord8
---   $(switch [| case _ of
---     "{"     -> skipSpace *> _object
---     "["     -> array_ value_
---     "false" -> pure $ Bool False
---     "true"  -> pure $ Bool True
---     "null"  -> pure Null
---     "-"     -> Number . negate <$> pure 0
---     "+"     -> Number <$> pure 0
---     "1"     -> pure Null
---     "2"     -> pure Null
---     "3"     -> pure Null
---     "4"     -> pure Null
---     "5"     -> pure Null
---     "6"     -> pure Null
---     "7"     -> pure Null
---     "8"     -> pure Null
---     "9"     -> pure Null
---     "0"     -> fail "zero or something" |]
---     )
---   case w of
---     -- W8_DOUBLE_QUOTE  -> A.anyWord8 *> (String <$> jstring_)
---     -- W8_OPEN_CURLY    -> A.anyWord8 *> object_ mkObject value_
---     W8_OPEN_SQUARE   -> anyWord8_ *> array_ value_
---     W8_f             -> $(string "false") $> Bool False
---     W8_t             -> $(string "true") $> Bool True
---     W8_n             -> $(string "null") $> Null
---     -- _                 | w >= W8_0 && w <= W8_9 || w == W8_MINUS
---                     --  -> Number <$> scientific
---     --   | otherwise    -> fail "not a valid jso
+json ::  Parser Err Value
+json = do
+  skipSpace
+  fix $ \value_ -> do
+      $(switch [| case _ of
+        "{"     -> skipSpace  *> object' value_
+        "["     -> skipSpace  *> array' value_
+        "false" -> Bool False <$ skipSpace
+        "true"  -> Bool True  <$ skipSpace
+        "null"  -> Null       <$ skipSpace
+        "\""    -> string'
+        "-"     -> number' (-1) 0
+        "+"     -> number' 1 0
+        "1"     -> number' 1 1
+        "2"     -> number' 1 2
+        "3"     -> number' 1 3
+        "4"     -> number' 1 4
+        "5"     -> number' 1 5
+        "6"     -> number' 1 6
+        "7"     -> number' 1 7
+        "8"     -> number' 1 8
+        "9"     -> number' 1 9
+        "0"     -> number' 0 0 |]
+        )
 
 
 value :: Parser Err Value
@@ -218,16 +209,35 @@ atoms =
 
 number :: Parser Err Value
 number = do
-  sign     <- ((-1) <$ $(char '-')) <|> pure 1
+  sign     <- ((-1::Int) <$ $(char '-')) <|> pure 1
   whole    <- readIntegerZ
   mDecimal <- optional (parsedLength readDecimal)
   let (mantissa,shift) = case mDecimal of
         Nothing          -> (whole                   , 0      )
         Just (dec,bytes) -> (whole*10^(bytes-1) + dec, bytes-1)
   exp      <- readExponent <|> pure 0
-  let !res = scientific (sign*mantissa) (exp - shift)
+  let !res = scientific (if sign < 0 then -mantissa else mantissa) (exp - shift)
   skipSpace
   pure $ Number res
+{-# INLINE number #-}
+
+
+number' :: Int -> Integer -> Parser Err Value
+number' 0 _ = do
+  setBack# 1
+  number
+number' sign start = do
+  whole    <- readIntegerZ' start
+  mDecimal <- optional (parsedLength readDecimal)
+  let (mantissa,shift) = case mDecimal of
+        Nothing          -> (whole                   , 0      )
+        Just (dec,bytes) -> (whole*10^(bytes-1) + dec, bytes-1)
+  exp      <- readExponent <|> pure 0
+  let !res = scientific (if sign < 0 then -mantissa else mantissa) (exp - shift)
+  skipSpace
+  pure $ Number res
+{-# INLINE number' #-}
+
 
 readDecimal :: Parser Err Integer
 readDecimal = $(char '.') *> readInteger
@@ -236,10 +246,11 @@ readExponent :: Parser Err Int
 readExponent = do
   $(char 'e') <|> $(char 'E')
   sign <- ((-1) <$ $(char '-')) <|> (1 <$ $(char '+')) <|> pure 1
-  i <- readInteger
+  i <- fromIntegral <$> readInteger
   if abs i > -(fromIntegral (minBound @Int))
     then err $ ExponentOutOfBounds i
-    else pure $! sign * fromIntegral i
+    else pure $! fromIntegral (if sign < 0 then -i else i)
+{-# INLINE readExponent #-}
 
 readIntegerZ :: Parser Err Integer
 readIntegerZ = do
@@ -252,11 +263,22 @@ readIntegerZ = do
           _ -> pure 0
     d | W8_0 < d && d <= W8_9 -> readInteger
       | otherwise -> err $ ExpectedNumber d
+{-# INLINE readIntegerZ #-}
+
+readIntegerZ' :: Integer -> Parser Err Integer
+readIntegerZ' n = do
+  w <- peekWord8
+  case w of
+    d | W8_0 <= d && d <= W8_9 -> anyWord8 *> readIntegerZ' (n*10 + fromIntegral (d - W8_0))
+      | otherwise -> pure n
+{-# INLINE readIntegerZ' #-}
 
 
 parsedLength :: Parser e a -> Parser e (a,Int)
 parsedLength p = withSpan p $ \a (Span (Pos start) (Pos end)) ->
   pure (a,start - end) -- position is from end of bytestring
+{-# INLINE parsedLength #-}
+
 
 string :: Parser Err Value
 string = String <$> text
@@ -324,21 +346,31 @@ hexDigit = anyWord8 >>= \case
     | W8_a <= d && d <= W8_f -> pure $! fromIntegral $ d - W8_a+10
     | W8_A <= d && d <= W8_F -> pure $! fromIntegral $ d - W8_A+10
     | otherwise              -> err $ ExpectedHexDigit d
+{-# INLINE hexDigit #-}
 
 object :: Parser Err Value -> Parser Err Value
 object val = do
   $(char '{')
   skipSpace
-  let pair = liftA2 (,) (string' <* $(char ':') <* skipSpace) val
+  object' val
+
+object' :: Parser Err Value -> Parser Err Value
+object' val = do
+  let pair = liftA2 (,) (text <* $(char ':') <* skipSpace) val
   pairs <- liftA2 (:) pair (many ($(char ',') *> skipSpace *> pair)) <|> pure []
   $(char '}')
   skipSpace
-  pure $ Object $! fromMapText $ Map.fromList pairs
+  pure $! Object $! fromMapText $ Map.fromList pairs
+{-# INLINE object' #-}
 
 array :: Parser e Value -> Parser e Value
 array val = do
   $(char '[')
   skipSpace
+  array' val
+
+array' :: Parser e Value -> Parser e Value
+array' val = do
   (vals, len) <- ((\v (vs,len) -> (v:reverse vs, len)) <$> val <*> go [] 1) <|> pure ([],0)
   $(char ']')
   skipSpace
@@ -347,3 +379,4 @@ array val = do
     go !vs !n =
         ($(char ',') *> skipSpace *> val >>= \v -> go (v:vs) (n+1))
         <|> pure (vs, n)
+{-# INLINE array' #-}
