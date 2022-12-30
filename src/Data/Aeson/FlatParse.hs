@@ -31,6 +31,50 @@ import Data.ByteString qualified as BS
 import Data.List (foldl')
 import Control.Applicative (liftA2)
 
+import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Text.Encoding (decodeUtf8)
+import Data.Text.Lazy qualified as TL
+import Data.Text.Lazy.Builder (Builder)
+import Data.Text.Lazy.Builder qualified as TB
+
+-- From aeson package
+#if MIN_VERSION_text(2,0,0)
+-- import Data.Aeson.Internal.ByteString
+import GHC.ForeignPtr (ForeignPtr(ForeignPtr))
+import Data.ByteString.Internal (ByteString (..))
+
+import Data.Text.Array                (Array (..))
+import Data.Text.Internal qualified as T (Text (..))
+
+import Data.ByteString.Short.Internal qualified as SBS
+
+#else
+import Data.Text.Encoding qualified as TE
+
+#endif
+
+-- | The input is assumed to contain only 7bit ASCII characters (i.e. @< 0x80@).
+--   We use TE.decodeLatin1 here because TE.decodeASCII is currently (text-1.2.4.0)
+--   deprecated and equal to TE.decodeUtf8, which is slower than TE.decodeLatin1.
+unsafeDecodeASCII :: ByteString -> T.Text
+
+#if MIN_VERSION_text(2,0,0)
+unsafeDecodeASCII bs = withBS bs $ \_fp len -> if len == 0 then T.empty else
+  let !(SBS.SBS arr) = SBS.toShort bs in T.Text (ByteArray arr) 0 len
+
+withBS :: ByteString -> (ForeignPtr Word8 -> Int -> r) -> r
+#if MIN_VERSION_bytestring(0,11,0)
+withBS (BS !sfp !slen)       kont = kont sfp slen
+#else
+withBS (PS !sfp !soff !slen) kont = kont (plusForeignPtr sfp soff) slen
+#endif
+{-# INLINE withBS #-}
+
+#else
+unsafeDecodeASCII = TE.decodeLatin1
+#endif
+
 
 -- spaces
 pattern W8_SPACE :: Word8
@@ -216,36 +260,51 @@ parsedLength p = withSpan p $ \a (Span (Pos start) (Pos end)) ->
   pure (a,start - end) -- position is from end of bytestring
 
 string :: Parser Err Value
-string = String <$> string'
+string = String <$> text
+{-# INLINE string #-}
 
-string' :: Parser Err Text
-string' = do
+string' :: Parser Err Value
+string' = String <$> text'
+{-# INLINE string' #-}
+
+text :: Parser Err Text
+text = do
   $(char '"')
-  bs <- many (normalSpan <|> escapedChars)
+  text'
+{-# INLINE text #-}
+
+text' :: Parser Err Text
+text' = do
+  (builder, Sum totalLen) <- chainl (<>) (pure mempty) (asciiSpan <|> nonAsciiChars <|> escapedChars)
   $(char '"')
-  let (builder, totalLen) =
-        foldl' (\(!accB,!accLen) (b,len) -> (accB <> b, accLen + len))
-               (mempty,0)
-               bs
-      !res = TL.toStrict $ TB.toLazyTextWith totalLen builder
+  let !res = TL.toStrict $ TB.toLazyTextWith totalLen builder
   skipSpace
   pure res
+{-# INLINE text' #-}
 
-normalSpan :: Parser e (Builder, Int)
-normalSpan = do
-  bytes <- byteStringOf (some_ normalChars)
-  pure (TB.fromText $ decodeUtf8 bytes, BS.length bytes)
+asciiSpan :: Parser e (Builder, Sum Int)
+asciiSpan = do
+  bytes <- byteStringOf (some_ (satisfyASCII (\c -> c >= ' ' && c < '\128' && c /= '"' && c /= '\\')))
+  pure (TB.fromText $ unsafeDecodeASCII bytes, Sum $ BS.length bytes)
+{-# INLINE asciiSpan #-}
 
-normalChars :: Parser e Char
-normalChars = fusedSatisfy (\c -> c >= ' ' && c /= '"' && c /= '\\') (const True) (const True) (const True)
+nonAsciiChars :: Parser e (Builder, Sum Int)
+nonAsciiChars = do
+  bytes <- byteStringOf (some_ nonAsciiChar)
+  pure (TB.fromText $ decodeUtf8 bytes, Sum $ BS.length bytes)
+{-# INLINE nonAsciiChars #-}
 
-escapedChars :: Parser Err (Builder, Int)
+nonAsciiChar :: Parser e ()
+nonAsciiChar = fusedSatisfy_ (\c -> c >= '\128') (const True) (const True) (const True)
+{-# INLINE nonAsciiChar #-}
+
+escapedChars :: Parser Err (Builder, Sum Int)
 escapedChars = do
   $(char '\\')
   anyWord8 >>= \case
     W8_DOUBLE_QUOTE -> pure (TB.singleton '"',  1)
     W8_BACKSLASH    -> pure (TB.singleton '\\', 1)
-    W8_FORWARDSLASH -> pure (TB.singleton '/',  1)
+    W8_SLASH        -> pure (TB.singleton '/',  1)
     W8_b            -> pure (TB.singleton '\b', 1)
     W8_f            -> pure (TB.singleton '\f', 1)
     W8_n            -> pure (TB.singleton '\n', 1)
@@ -256,8 +315,9 @@ escapedChars = do
       b <- hexDigit
       c <- hexDigit
       d <- hexDigit
-      pure (TB.singleton $ chr $ a*4096 + b*256 + c*16 + d, 4) -- hack
+      pure (TB.singleton $ chr $ a*4096 + b*256 + c*16 + d, 4) -- hack, could be smaller than this
     d -> err $ UnexpectedEscapeCharacter d
+{-# INLINE escapedChars #-}
 
 hexDigit :: Parser Err Int
 hexDigit = anyWord8 >>= \case
