@@ -65,7 +65,7 @@ library
                     , vector
                     , scientific
                     , bytestring
-                    , text
+                    , text >= 2.0
                     , containers
 
 
