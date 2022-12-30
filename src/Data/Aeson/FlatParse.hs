@@ -75,47 +75,14 @@ unsafeDecodeASCII = TE.decodeLatin1
 #endif
 
 
--- spaces
-pattern W8_SPACE :: Word8
-pattern W8_NL    :: Word8
-pattern W8_CR    :: Word8
-pattern W8_TAB   :: Word8
-
-pattern W8_SPACE = 0x20
-pattern W8_NL    = 0x0a
-pattern W8_CR    = 0x0d
-pattern W8_TAB   = 0x09
-
 -- punctuation
 pattern W8_BACKSLASH    :: Word8
-pattern W8_FORWARDSLASH :: Word8
+pattern W8_SLASH        :: Word8
 pattern W8_DOUBLE_QUOTE :: Word8
-pattern W8_DOT          :: Word8
-pattern W8_COMMA        :: Word8
 
 pattern W8_BACKSLASH    = 92
-pattern W8_FORWARDSLASH = 47
-pattern W8_COMMA        = 44
-pattern W8_DOT          = 46
+pattern W8_SLASH        = 47
 pattern W8_DOUBLE_QUOTE = 34
-
--- parentheses
-pattern W8_CLOSE_CURLY  :: Word8
-pattern W8_CLOSE_SQUARE :: Word8
-pattern W8_OPEN_SQUARE  :: Word8
-pattern W8_OPEN_CURLY   :: Word8
-
-pattern W8_OPEN_CURLY   = 123
-pattern W8_OPEN_SQUARE  = 91
-pattern W8_CLOSE_CURLY  = 125
-pattern W8_CLOSE_SQUARE = 93
-
--- operators
-pattern W8_MINUS :: Word8
-pattern W8_PLUS  :: Word8
-
-pattern W8_PLUS  = 43
-pattern W8_MINUS = 45
 
 -- digits
 pattern W8_0 :: Word8
@@ -125,7 +92,7 @@ pattern W8_0 = 48
 pattern W8_9 = 57
 
 -- lower case
-pattern W8_e :: Word8
+pattern W8_a :: Word8
 pattern W8_f :: Word8
 pattern W8_n :: Word8
 pattern W8_t :: Word8
@@ -133,7 +100,7 @@ pattern W8_r :: Word8
 pattern W8_b :: Word8
 pattern W8_u :: Word8
 
-pattern W8_e = 101
+pattern W8_a = 97
 pattern W8_f = 102
 pattern W8_n = 110
 pattern W8_t = 116
@@ -141,20 +108,16 @@ pattern W8_r = 114
 pattern W8_b = 98
 pattern W8_u = 117
 
-pattern W8_a :: Word8
+-- upper case
 pattern W8_A :: Word8
 pattern W8_F :: Word8
 
-pattern W8_a = 97
 pattern W8_A = 65
 pattern W8_F = 70
 
--- upper case
-pattern W8_E :: Word8
-pattern W8_E = 69
-
 skipSpace :: Parser e ()
 skipSpace = many_ $ satisfyASCII_ $ \w -> w == ' ' || w == '\n' || w == '\r' || w == '\t'
+{-# INLINE skipSpace #-}
 
 data Err
   = UnexpectedNumber Word8
@@ -181,7 +144,6 @@ json = do
         "null"  -> Null       <$ skipSpace
         "\""    -> string'
         "-"     -> number' (-1) 0
-        "+"     -> number' 1 0
         "1"     -> number' 1 1
         "2"     -> number' 1 2
         "3"     -> number' 1 3
