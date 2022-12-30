@@ -12,7 +12,7 @@ jobs:
           # GHC 8.8+ only works with cabal v3+
           - ghc: 8.8.4
             cabal: 2.4.1.0
-    name: Haskell GHC ${{ matrix.ghc }} sample
+    name: GHC ${{ matrix.ghc }} - Cabal ${{ matrix.cabal }} - ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - name: Setup Haskell
