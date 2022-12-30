@@ -1,0 +1,146 @@
+{
+  "reportOutliers": {
+    "lowMild": 0,
+    "lowSevere": 0,
+    "highSevere": 0,
+    "highMild": 0,
+    "samplesSeen": 41
+  },
+  "reportAnalysis": {
+    "anMean": {
+      "estUpperBound": 1.8883992856354276e-5,
+      "estLowerBound": 1.8242306327854734e-5,
+      "estPoint": 1.85899186058926e-5,
+      "abc\t\r\u0041\u005A": 0.95,
+      "anull": null,
+      "true": true,
+      "false": false,
+      "bignumber" : 87623098612239650916987345897349057196349568734971973490567091739475967123645912673975982374987
+    },
+    "anRegress": [
+      {
+        "regRSquare": {
+          "estUpperBound": 0.9980736308036207,
+          "estLowerBound": 0.9957605626811802,
+          "estPoint": 0.9968104493100445,
+          "estConfidenceLevel": 0.95
+        },
+        "regResponder": "time",
+        "regCoeffs": {
+          "y": {
+            "estUpperBound": 1.2966206656616708e-4,
+            "estLowerBound": -5.533292594297107e-4,
+            "estPoint": -2.4270608585578744e-4,
+            "estConfidenceLevel": 0.95
+          },
+          "iters": {
+            "estUpperBound": 1.9067935541291482e-5,
+            "estLowerBound": 1.8262588668539494e-5,
+            "estPoint": 1.867215985455127e-5,
+            "estConfidenceLevel": 0.95
+          }
+        }
+      }
+    ],
+    "anOutlierVar": {
+      "ovEffect": "Severe",
+      "ovDesc": "severe",
+      "ovFraction": 0.6349908743147147
+    },
+    "anStdDev": {
+      "estUpperBound": 1.1967767415437182e-6,
+      "estLowerBound": 9.229713455466992e-7,
+      "estPoint": 1.0366687634185552e-6,
+      "estConfidenceLevel": 0.95
+    },
+    "anOverhead": 2.3544477961901297e-6
+  },
+  "reportKeys": [
+    "time",
+    "cpuTime",
+    "cycles",
+    "iters",
+    "allocated",
+    "numGcs",
+    "bytesCopied",
+    "mutatorWallSeconds",
+    "mutatorCpuSeconds",
+    "gcWallSeconds",
+    "gcCpuSeconds"
+  ],
+  "reportMeasured": [
+    [
+      4.3028994696214795e-5,
+      4.3000000005122274e-5,
+      100424,
+      1,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      4.359999729786068e-5,
+      4.399999988891068e-5,
+      122638,
+      2,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      6.422698788810521e-5,
+      6.299999995462713e-5,
+      180172,
+      3,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      0.2353524770005606,
+      0.2351650000000518,
+      657479884,
+      12289,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  ],
+  "reportNumber": 347,
+  "reportName": "Pure/length/zipWith/String+japanese",
+  "reportKDEs": [
+    {
+      "kdePDF": [
+        97064.98692947735,
+        111469.2968311744,
+        140129.097622596,
+        16864.738402400264,
+        15075.082941668938
+      ],
+      "kdeType": "time",
+      "kdeValues": [
+        1.7044013343823562e-5,
+        1.7075620996345087e-5,
+        1.7107228648866612e-5,
+        1.713883630138814e-5,
+        2.1058185214057315e-5
+      ]
+    }
+  ]
+}
