@@ -1,35 +1,34 @@
 
 {-# LANGUAGE PatternSynonyms #-}
--- {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE MagicHash #-}
+{-# LANGUAGE CPP          #-}
 
-module Data.Aeson.FlatParse where
+module Data.Aeson.FlatParse (json) where
 
-import FlatParse.Basic hiding (string)
-import Data.Word (Word8)
+import Control.Applicative (liftA2)
 import Data.Aeson.KeyMap (fromMapText)
 import Data.Aeson.Types (Value(..), Key, Object)
+import Data.ByteString (ByteString)
+import Data.ByteString qualified as BS
 import Data.Function (fix)
 import Data.Functor (($>))
+import Data.List (foldl')
 import Data.Map.Strict qualified as Map
-import Data.Text (Text)
-import Data.Text.Encoding (decodeUtf8)
-import Data.Text.Lazy qualified as TL
-import Data.Text.Lazy.Builder (Builder)
-import Data.Text.Lazy.Builder qualified as TB
+import Data.Monoid (Sum(..))
+import Data.Word (Word8)
+import FlatParse.Basic hiding (string)
+
+
 import Data.Vector (Vector)
 import Data.Scientific ( scientific, Scientific )
 import Data.Char (chr)
 import qualified Data.Vector as Vector (empty, fromList, fromListN, reverse)
 
 import Debug.Trace
-import Data.ByteString (ByteString)
-import Data.ByteString qualified as BS
-import Data.List (foldl')
-import Control.Applicative (liftA2)
 
 import Data.Text (Text)
 import Data.Text qualified as T
