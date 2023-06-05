@@ -153,7 +153,8 @@ json = do
         "7"     -> number' 1 7
         "8"     -> number' 1 8
         "9"     -> number' 1 9
-        "0"     -> number' 0 0 |]
+        "0"     -> number' 0 0
+        |]
         )
 
 
@@ -203,6 +204,7 @@ number' sign start = do
 
 readDecimal :: Parser Err Integer
 readDecimal = $(char '.') *> readInteger
+{-# INLINE readDecimal #-}
 
 readExponent :: Parser Err Int
 readExponent = do
